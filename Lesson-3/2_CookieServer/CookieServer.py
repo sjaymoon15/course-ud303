@@ -13,8 +13,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from http import cookies
 from urllib.parse import parse_qs
 from html import escape as html_escape
+from http.cookies import SimpleCookie, CookieError
 
-form = '''<!DOCTYPE html>
+form = """<!DOCTYPE html>
 <title>I Remember You</title>
 <p>
 {}
@@ -26,13 +27,13 @@ form = '''<!DOCTYPE html>
 <br>
 <button type="submit">Tell me!</button>
 </form>
-'''
+"""
 
 
 class NameHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         # How long was the post data?
-        length = int(self.headers.get('Content-length', 0))
+        length = int(self.headers.get("Content-length", 0))
 
         # Read and parse the post data
         data = self.rfile.read(length).decode()
@@ -44,11 +45,13 @@ class NameHandler(BaseHTTPRequestHandler):
         # 1. Set the fields of the cookie.
         #    Give the cookie a value from the 'yourname' variable,
         #    a domain (localhost), and a max-age.
-
+        c["yourname"] = yourname
+        c["yourname"]["max-age"] = 10000
+        c["yourname"]["domain"] = "localhost"
         # Send a 303 back to the root page, with a cookie!
         self.send_response(303)  # redirect via GET
-        self.send_header('Location', '/')
-        self.send_header('Set-Cookie', c['yourname'].OutputString())
+        self.send_header("Location", "/")
+        self.send_header("Set-Cookie", c["yourname"].OutputString())
         self.end_headers()
 
     def do_GET(self):
@@ -56,12 +59,13 @@ class NameHandler(BaseHTTPRequestHandler):
         message = "I don't know you yet!"
 
         # Look for a cookie in the request.
-        if 'cookie' in self.headers:
+        if "cookie" in self.headers:
             try:
                 # 2. Extract and decode the cookie.
                 #    Get the cookie from the headers and extract its value
                 #    into a variable called 'name'.
-
+                cookie = SimpleCookie(self.headers["Cookie"])
+                name = cookie["yourname"].value
                 # Craft a message, escaping any HTML special chars in name.
                 message = "Hey there, " + html_escape(name)
             except (KeyError, cookies.CookieError) as e:
@@ -72,7 +76,7 @@ class NameHandler(BaseHTTPRequestHandler):
         self.send_response(200)
 
         # Then send headers.
-        self.send_header('Content-type', 'text/html; charset=utf-8')
+        self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
 
         # Send the form with the message in it.
@@ -80,7 +84,7 @@ class NameHandler(BaseHTTPRequestHandler):
         self.wfile.write(mesg.encode())
 
 
-if __name__ == '__main__':
-    server_address = ('', 8000)
+if __name__ == "__main__":
+    server_address = ("", 8000)
     httpd = HTTPServer(server_address, NameHandler)
     httpd.serve_forever()
